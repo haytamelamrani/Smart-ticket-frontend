@@ -426,7 +426,7 @@ export default function AllTicketsPage() {
   const fetchTickets = async () => {
     try {
       setLoading(true)
-      const res = await axios.get<TicketWithMessages[]>("http://localhost:8080/api/tickets/with-messages", {
+      const res = await axios.get<TicketWithMessages[]>("http://localhost:8080/api/tickets/Historique", {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("token")}`,
         },
@@ -501,52 +501,6 @@ export default function AllTicketsPage() {
     }
   }
 
-  // Fonction pour changer la catégorie d'un ticket
-  const updateTicketCategory = async (ticketId: number, newCategory: string) => {
-    if (userRole !== "ADMIN" && userRole !== "AGENT") {
-      toast.error("Accès refusé", { description: "Vous n'avez pas les droits pour modifier la catégorie" })
-      return
-    }
-
-    // Procéder directement à la mise à jour (pas de cas spécial comme pour la clôture)
-    await performCategoryUpdate(ticketId, newCategory)
-  }
-
-  // Fonction pour effectuer la mise à jour de la catégorie
-  const performCategoryUpdate = async (ticketId: number, newCategory: string) => {
-    try {
-      await axios.post(`http://localhost:8080/api/tickets/${ticketId}/update-category`, null, {
-        params: {
-          category: newCategory,
-        },
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
-      })
-
-      // Mise à jour optimisée - seulement le ticket concerné
-      // IMPORTANT : Nous ne modifions PAS etatUpdatedAt ici, car un changement de catégorie ne réinitialise pas le chronomètre de l'état.
-      setTickets((prev) =>
-        prev.map((ticket) =>
-          ticket.id === ticketId
-            ? {
-                ...ticket,
-                category: newCategory,
-              }
-            : ticket,
-        ),
-      )
-
-      const categoryLabel = categoryConfig[newCategory as keyof typeof categoryConfig]?.label || newCategory
-      toast.success("Catégorie mise à jour", {
-        description: `Le ticket a été mis à jour vers la catégorie "${categoryLabel}"`,
-      })
-    } catch (error) {
-      console.error("❌ Erreur lors de la mise à jour de la catégorie:", error)
-      toast.error("Erreur", { description: "Impossible de mettre à jour la catégorie" })
-    }
-  }
-
   // Fonction pour confirmer la clôture avec solution (OPTIONNELLE)
   const confirmClosureWithSolution = async () => {
     if (!solutionDialog.ticketId) {
@@ -565,6 +519,27 @@ export default function AllTicketsPage() {
     })
   }
 
+  const handleReveillerTicket = async () => {
+    try {
+      await axios.put(
+        `http://localhost:8080/api/tickets/${confirmDialog.ticketId}/reveiller`,
+        null,
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        }
+      );
+  
+      toast.success("Ticket relancé avec succès.");
+      setConfirmDialog((prev) => ({ ...prev, open: false }));
+      // Optionnel : recharger les tickets
+    } catch (error) {
+      toast.error("Erreur lors de la relance.");
+      console.error(error);
+    }
+  };
+  
   // Fonction pour confirmer la clôture (CLIENT uniquement)
   const confirmTicketClosure = async () => {
     if (!confirmDialog.ticketId) return
@@ -1145,39 +1120,10 @@ Si le problème persiste, je peux vous mettre en contact avec un agent humain. �
                   )}
 
                   <div className="flex items-start justify-between mb-2">
-                    {/* Badge de catégorie cliquable pour ADMIN/AGENT */}
-                    {userRole === "ADMIN" || userRole === "AGENT" ? (
-                      <Select
-                        value={ticket.category}
-                        onValueChange={(newCategory) => {
-                          if (newCategory) updateTicketCategory(ticket.id, newCategory)
-                        }}
-                      >
-                        <SelectTrigger
-                          className={`${categoryInfo.color} px-3 py-1 h-auto border-0 text-sm font-medium w-auto`}
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <div className="flex items-center gap-1">
-                            <SelectValue />
-                          </div>
-                        </SelectTrigger>
-                        <SelectContent>
-                          {Object.entries(categoryConfig).map(([key, config]) => (
-                            <SelectItem key={key} value={key}>
-                              <div className="flex items-center gap-2">
-                                <span>{config.emoji}</span>
-                                {config.label}
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <Badge className={`${categoryInfo.color} px-3 py-1`}>
-                        <span className="mr-1">{categoryInfo.emoji}</span>
-                        {categoryInfo.label}
-                      </Badge>
-                    )}
+                    <Badge className={`${categoryInfo.color} px-3 py-1`}>
+                      <span className="mr-1">{categoryInfo.emoji}</span>
+                      {categoryInfo.label}
+                    </Badge>
                     <div className="flex items-center gap-2">
                       {/* Badge de statut cliquable pour ADMIN/AGENT */}
                       {(userRole === "ADMIN" || userRole === "AGENT") && statusInfo.clickable ? (
@@ -1191,6 +1137,7 @@ Si le problème persiste, je peux vous mettre en contact avec un agent humain. �
                             className={`${statusInfo.color} px-2 py-1 h-auto border-0 text-xs font-medium`}
                           >
                             <div className="flex items-center gap-1">
+                              <StatusIcon className="w-3 h-3" />
                               <SelectValue />
                             </div>
                           </SelectTrigger>
@@ -1251,71 +1198,69 @@ Si le problème persiste, je peux vous mettre en contact avec un agent humain. �
                   {canConfirmClosure && (
                     <div className="pt-2" onClick={(e) => e.stopPropagation()}>
                       <Dialog
-                        open={confirmDialog.open && confirmDialog.ticketId === ticket.id}
-                        onOpenChange={(open) => setConfirmDialog((prev) => ({ ...prev, open }))}
-                      >
-                        <DialogTrigger asChild>
-                          <Button
-                            className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white"
-                            onClick={() =>
-                              setConfirmDialog({
-                                open: true,
-                                ticketId: ticket.id,
-                                rating: 0,
-                                feedback: "",
-                              })
+                    open={confirmDialog.open && confirmDialog.ticketId === ticket.id}
+                    onOpenChange={(open) =>
+                        setConfirmDialog((prev) => ({ ...prev, open }))
+                    }
+                    >
+                    <DialogTrigger asChild>
+                        <Button
+                        className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white"
+                        onClick={() =>
+                            setConfirmDialog({
+                            open: true,
+                            ticketId: ticket.id,
+                            rating: 0,
+                            feedback: "",
+                            })
+                        }
+                        >
+                        <RefreshCw className="w-4 h-4 mr-2" />
+                        Relancer ticket
+                        </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-md">
+                        <DialogHeader>
+                        <DialogTitle>Relancer ce ticket ?</DialogTitle>
+                        <DialogDescription>
+                            Vous allez remettre ce ticket à l'état <strong>NOUVEAU</strong>.
+                            Cela indiquera qu'il nécessite une nouvelle intervention.
+                        </DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-4">
+                        <div>
+                            <Label className="text-sm font-medium mb-2 block">Commentaire (optionnel)</Label>
+                            <Textarea
+                            id="feedback"
+                            placeholder="Pourquoi relancer ce ticket ?"
+                            value={confirmDialog.feedback}
+                            onChange={(e) =>
+                                setConfirmDialog((prev) => ({ ...prev, feedback: e.target.value }))
                             }
-                          >
-                            <ThumbsUp className="w-4 h-4 mr-2" />
-                            Confirmer la clôture
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent className="sm:max-w-md">
-                          <DialogHeader>
-                            <DialogTitle>Confirmer la clôture du ticket</DialogTitle>
-                            <DialogDescription>
-                              Votre problème a-t-il été résolu ? Donnez-nous votre avis.
-                            </DialogDescription>
-                          </DialogHeader>
-                          <div className="space-y-4">
-                            <div>
-                              <Label className="text-sm font-medium mb-2 block">Note de satisfaction *</Label>
-                              <StarRating
-                                rating={confirmDialog.rating}
-                                onRatingChange={(rating) => setConfirmDialog((prev) => ({ ...prev, rating }))}
-                              />
-                            </div>
-                            <div>
-                              <Label htmlFor="feedback" className="text-sm font-medium mb-2 block">
-                                Commentaire (optionnel)
-                              </Label>
-                              <Textarea
-                                id="feedback"
-                                placeholder="Partagez votre expérience..."
-                                value={confirmDialog.feedback}
-                                onChange={(e) => setConfirmDialog((prev) => ({ ...prev, feedback: e.target.value }))}
-                                className="min-h-[80px]"
-                              />
-                            </div>
-                            <div className="flex gap-2 pt-4">
-                              <Button
-                                variant="outline"
-                                className="flex-1 bg-transparent"
-                                onClick={() => setConfirmDialog((prev) => ({ ...prev, open: false }))}
-                              >
-                                Annuler
-                              </Button>
-                              <Button
-                                className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600"
-                                onClick={confirmTicketClosure}
-                                disabled={confirmDialog.rating === 0}
-                              >
-                                Confirmer
-                              </Button>
-                            </div>
-                          </div>
-                        </DialogContent>
-                      </Dialog>
+                            className="min-h-[80px]"
+                            />
+                        </div>
+                        <div className="flex gap-2 pt-4">
+                            <Button
+                            variant="outline"
+                            className="flex-1"
+                            onClick={() =>
+                                setConfirmDialog((prev) => ({ ...prev, open: false }))
+                            }
+                            >
+                            Annuler
+                            </Button>
+                            <Button
+                            className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600"
+                            onClick={handleReveillerTicket}
+                            >
+                            Confirmer la relance
+                            </Button>
+                        </div>
+                        </div>
+                    </DialogContent>
+                    </Dialog>
+
                     </div>
                   )}
 
@@ -1559,4 +1504,4 @@ Si le problème persiste, je peux vous mettre en contact avec un agent humain. �
       </div>
     </div>
   )
-}
+} 

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { Navbar } from "./navbar"
 import { UserNavbar } from "./userNavbar"
 import { AdminNavbar } from "./AdminNavbar"
+import { AgentrNavbar } from "./AgentNavbar"
 
 export default function NavbarSwitcher() {
   const [role, setRole] = useState<string | null>(null)
@@ -35,6 +36,6 @@ export default function NavbarSwitcher() {
 
   if (role === "ADMIN") return <AdminNavbar />
   if (role === "CLIENT") return <UserNavbar />
-  if (role === "AGENT") return <UserNavbar />
+  if (role === "AGENT") return <AgentrNavbar />
   return <Navbar />
 }

@@ -21,11 +21,10 @@ export function UserNavbar() {
   }, [])
 
   const navItems = [
-    { href: "/", label: "Accueil" },
+    { href: "/Historique", label: "Historique" },
     { href: "/create-ticket", label: "Nouveau signalement" },
     { href: "/AllTickets", label: "Mes tickets" },
     { href: "/Message", label: "Messagerie" },
-    { href: "/SimilarTicketsPage", label: "SimilarTickets" },
   ]
 
   const handleLogout = () => {
