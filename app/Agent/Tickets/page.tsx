@@ -424,9 +424,10 @@ export default function AllTicketsPage() {
   }
 
   const fetchTickets = async () => {
+    const email = localStorage.getItem("email");
     try {
       setLoading(true)
-      const res = await axios.get<TicketWithMessages[]>("http://localhost:8080/api/tickets/with-messages", {
+      const res = await axios.get<TicketWithMessages[]>(`http://localhost:8080/api/tickets/with-messages-Specialite/${email}`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("token")}`,
         },

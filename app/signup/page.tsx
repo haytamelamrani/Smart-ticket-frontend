@@ -1,10 +1,9 @@
-'use client'
+"use client"
 
 import type React from "react"
 import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -17,7 +16,17 @@ export default function SignUpPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [password, setPassword] = useState("")
   const router = useRouter()
+
+  // Fonctions de validation du mot de passe
+  const hasMinLength = (pwd: string) => pwd.length >= 8
+  const hasUpperCase = (pwd: string) => /[A-Z]/.test(pwd)
+  const hasNumber = (pwd: string) => /\d/.test(pwd)
+
+  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setPassword(e.target.value)
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -26,12 +35,18 @@ export default function SignUpPage() {
 
     const form = e.target as HTMLFormElement
     const formData = new FormData(form)
-
-    const password = formData.get("password")?.toString()
+    const passwordValue = formData.get("password")?.toString()
     const confirmPassword = formData.get("confirmPassword")?.toString()
 
-    if (password !== confirmPassword) {
+    if (passwordValue !== confirmPassword) {
       setError("❌ Les mots de passe ne correspondent pas")
+      setIsLoading(false)
+      return
+    }
+
+    // Vérifier les conditions du mot de passe
+    if (!hasMinLength(passwordValue || "") || !hasUpperCase(passwordValue || "") || !hasNumber(passwordValue || "")) {
+      setError("❌ Le mot de passe ne respecte pas toutes les conditions requises")
       setIsLoading(false)
       return
     }
@@ -40,20 +55,19 @@ export default function SignUpPage() {
       firstName: formData.get("firstName"),
       lastName: formData.get("lastName"),
       email: formData.get("email"),
-      password,
-      company: formData.get("company")
+      password: passwordValue,
+      company: formData.get("company"),
     }
 
     try {
       const res = await fetch("http://localhost:8080/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data)
+        body: JSON.stringify(data),
       })
 
       const text = await res.text()
       let result
-
       try {
         result = JSON.parse(text)
       } catch {
@@ -137,6 +151,8 @@ export default function SignUpPage() {
                     id="password"
                     name="password"
                     type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={handlePasswordChange}
                     required
                   />
                   <button
@@ -171,15 +187,21 @@ export default function SignUpPage() {
               <div className="text-sm text-muted-foreground space-y-1">
                 <p className="mb-2">Votre mot de passe doit contenir :</p>
                 <div className="flex items-center space-x-2">
-                  <CheckCircle className="h-4 w-4 text-green-500" />
+                  <CheckCircle
+                    className={`h-4 w-4 ${hasMinLength(password) ? "text-green-500" : "text-muted-foreground"}`}
+                  />
                   <span>Au moins 8 caractères</span>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <CheckCircle className="h-4 w-4 text-muted-foreground" />
+                  <CheckCircle
+                    className={`h-4 w-4 ${hasUpperCase(password) ? "text-green-500" : "text-muted-foreground"}`}
+                  />
                   <span>Une lettre majuscule</span>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <CheckCircle className="h-4 w-4 text-muted-foreground" />
+                  <CheckCircle
+                    className={`h-4 w-4 ${hasNumber(password) ? "text-green-500" : "text-muted-foreground"}`}
+                  />
                   <span>Un chiffre</span>
                 </div>
               </div>
