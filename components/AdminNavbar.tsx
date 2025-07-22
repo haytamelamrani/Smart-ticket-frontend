@@ -22,7 +22,7 @@ export function AdminNavbar() {
   const navItems = [
     { href: "/admin/dashboard", label: "Dashboard" },
     { href: "/admin/users", label: "Utilisateurs" },
-    { href: "/AllTickets", label: "Tickets" },
+    { href: "/admin/Tickets", label: "Tickets" },
     { href: "/Message", label: "Messages" },
     { href: "/SimilarTicketsPage", label: "SimilarTickets" },
   ]

@@ -1,5 +1,4 @@
 "use client"
-
 import { useEffect } from "react"
 import type React from "react"
 import { useState } from "react"
@@ -30,6 +29,7 @@ import {
   Sparkles,
   Send,
   MessageCircle,
+  Zap,
 } from "lucide-react"
 import { toast } from "sonner"
 import axios from "axios"
@@ -142,6 +142,7 @@ export default function CreateTicketPage() {
   const [ticketId, setTicketId] = useState<string>("")
   const [createdTicketId, setCreatedTicketId] = useState<string>("")
   const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [isAnalyzingAdvanced, setIsAnalyzingAdvanced] = useState(false)
   const [aiPrediction, setAiPrediction] = useState<AIPrediction | null>(null)
   const [showAIChat, setShowAIChat] = useState(false)
   const [showAgentChat, setShowAgentChat] = useState(false)
@@ -150,10 +151,9 @@ export default function CreateTicketPage() {
   const [aiChatInput, setAiChatInput] = useState("")
   const [agentChatInput, setAgentChatInput] = useState("")
 
-  // Fonction pour prédire avec Hugging Face
+  // Fonction pour prédire avec Hugging Face (automatique)
   const predictWithAI = async (title: string, description: string) => {
     if (!title.trim() && !description.trim()) return
-
     setIsAnalyzing(true)
     try {
       const response = await fetch("/api/predict-ticket", {
@@ -192,6 +192,62 @@ export default function CreateTicketPage() {
     }
   }
 
+  // Nouvelle fonction pour la classification IA améliorée
+  const predictWithAdvancedAI = async () => {
+    if (!formData.title.trim() && !formData.description.trim()) {
+      toast.error("Erreur", {
+        description: "Veuillez saisir un titre ou une description avant d'utiliser la classification avancée",
+      })
+      return
+    }
+
+    setIsAnalyzingAdvanced(true)
+    try {
+      const response = await fetch("/api/chat-ai-direct", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          message: "consentre sur la classification",
+          ticketContext: {
+            title: formData.title,
+            description: formData.description,
+            category: formData.category,
+            priority: formData.priority,
+            type: formData.type,
+          },
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to predict with advanced AI")
+      }
+
+      const prediction: AIPrediction = await response.json()
+      setAiPrediction(prediction)
+
+      // Appliquer les nouvelles prédictions
+      setFormData((prev) => ({
+        ...prev,
+        type: prediction.type,
+        category: prediction.category,
+        priority: prediction.priority,
+      }))
+
+      toast.success("Classification IA avancée terminée", {
+        description: "Prédiction exacte appliquée avec succès",
+      })
+    } catch (error) {
+      console.error("Erreur lors de la prédiction avancée:", error)
+      toast.error("Erreur IA avancée", {
+        description: "Impossible d'obtenir une prédiction exacte",
+      })
+    } finally {
+      setIsAnalyzingAdvanced(false)
+    }
+  }
+
   // Utiliser useEffect pour déclencher la prédiction quand le titre ou la description change
   useEffect(() => {
     if (formData.title.trim() || formData.description.trim()) {
@@ -224,38 +280,31 @@ export default function CreateTicketPage() {
       toast.error("Erreur de validation", { description: "Le titre est obligatoire" })
       return false
     }
-
     if (!formData.description.trim()) {
       toast.error("Erreur de validation", { description: "La description est obligatoire" })
       return false
     }
-
     if (!formData.category) {
       toast.error("Erreur de validation", { description: "Veuillez sélectionner une catégorie" })
       return false
     }
-
     if (!formData.priority) {
       toast.error("Erreur de validation", { description: "Veuillez sélectionner une priorité" })
       return false
     }
-
     if (!formData.type) {
       toast.error("Erreur de validation", { description: "Veuillez sélectionner un type de ticket" })
       return false
     }
-
     if (!formData.userEmail.trim() || !formData.userEmail.includes("@")) {
       toast.error("Erreur de validation", { description: "Veuillez saisir une adresse email valide" })
       return false
     }
-
     return true
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-
     if (!validateForm()) return
 
     setIsSubmitting(true)
@@ -278,10 +327,8 @@ export default function CreateTicketPage() {
       })
 
       const token = localStorage.getItem("token")
-
       console.log("🎯 Envoi du ticket au backend...")
 
-      
       // Appel à votre backend Spring Boot
       const response = await axios.post("http://localhost:8080/api/tickets", data, {
         headers: {
@@ -332,7 +379,6 @@ export default function CreateTicketPage() {
     } catch (error) {
       console.error("❌ Erreur lors de la création du ticket:", error)
       setSubmitStatus("error")
-
       if (axios.isAxiosError(error)) {
         const errorMessage = error.response?.data?.message || "Erreur de communication avec le serveur"
         toast.error("Erreur lors de la création", {
@@ -347,31 +393,32 @@ export default function CreateTicketPage() {
       setIsSubmitting(false)
     }
   }
+
   const handleFermerTicket = async () => {
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("token")
       const response = await axios.post(
         `http://localhost:8080/api/tickets/${Number.parseInt(ticketId.replace("TK-", ""))}/fermer-par-client`,
         null,
         {
-          params: { email:formData.userEmail },
+          params: { email: formData.userEmail },
           headers: {
             Authorization: `Bearer ${token}`,
           },
-        }
-      );
-      console.log("✅ Ticket archivé :", response.data);
+        },
+      )
+      console.log("✅ Ticket archivé :", response.data)
     } catch (error) {
-      console.error("Erreur lors de la fermeture :", error);
+      console.error("Erreur lors de la fermeture :", error)
     }
-  };
+  }
+
   // Fonction pour enregistrer un message selon votre MessageDto
   const saveMessage = async (content: string, channel: "ai" | "agent", senderType: "USER" | "SYSTEM" | "AGENT") => {
     if (!createdTicketId) return
 
     try {
       console.log("Ticket ID utilisé :", createdTicketId)
-
       const messageData = {
         ticketId: Number.parseInt(createdTicketId.replace("TK-", "")),
         content: content,
@@ -385,7 +432,7 @@ export default function CreateTicketPage() {
       console.log("💬 Sauvegarde du message:", messageData)
 
       // Appel à votre endpoint de messages (à créer)
-      const response= await axios.post("http://localhost:8080/api/messages", messageData, {
+      const response = await axios.post("http://localhost:8080/api/messages", messageData, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("token")}`,
           "Content-Type": "application/json",
@@ -404,7 +451,6 @@ export default function CreateTicketPage() {
 
     const userMessage = aiChatInput.trim()
     setAiChatInput("")
-
     setAiChatMessages((prev) => [...prev, { role: "user", content: userMessage }])
 
     // Sauvegarder le message utilisateur
@@ -454,7 +500,6 @@ export default function CreateTicketPage() {
         newMessages[newMessages.length - 1] = { role: "assistant", content: errorMessage }
         return newMessages
       })
-
       await saveMessage(errorMessage, "ai", "SYSTEM")
     }
   }
@@ -465,7 +510,6 @@ export default function CreateTicketPage() {
 
     const userMessage = agentChatInput.trim()
     setAgentChatInput("")
-
     setAgentChatMessages((prev) => [...prev, { role: "user", content: userMessage }])
 
     // Sauvegarder le message utilisateur
@@ -517,13 +561,11 @@ Merci pour votre patience ! Un agent va vous contacter rapidement. 🙏✨`
                   Votre demande a été enregistrée et sera traitée par notre équipe
                 </CardDescription>
               </CardHeader>
-
               <CardContent className="text-center space-y-6">
                 <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-emerald-200 dark:border-emerald-800 shadow-sm">
                   <p className="text-sm text-muted-foreground mb-3">Numéro de ticket</p>
                   <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400 tracking-wider">{ticketId}</p>
                 </div>
-
                 <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-emerald-200 dark:border-emerald-800">
                   <div className="flex items-center justify-center gap-2 text-muted-foreground">
                     <Mail className="w-4 h-4" />
@@ -624,7 +666,6 @@ Merci pour votre patience ! Un agent va vous contacter rapidement. 🙏✨`
                   </Button>
                 </CardTitle>
               </CardHeader>
-
               <CardContent className="p-0">
                 {/* Zone de messages avec ScrollArea */}
                 <ScrollArea className="h-80 w-full border-0 p-4 bg-gray-50 dark:bg-gray-900">
@@ -694,7 +735,6 @@ Merci pour votre patience ! Un agent va vous contacter rapidement. 🙏✨`
                     )}
                   </div>
                 </ScrollArea>
-
                 {/* Zone de saisie améliorée */}
                 <div className="p-4 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
                   <form onSubmit={handleAIChatSubmit} className="space-y-2">
@@ -758,7 +798,6 @@ Merci pour votre patience ! Un agent va vous contacter rapidement. 🙏✨`
                   </Button>
                 </CardTitle>
               </CardHeader>
-
               <CardContent className="p-0">
                 {/* Zone de messages avec ScrollArea */}
                 <ScrollArea className="h-80 w-full border-0 p-4 bg-gray-50 dark:bg-gray-900">
@@ -808,7 +847,6 @@ Merci pour votre patience ! Un agent va vous contacter rapidement. 🙏✨`
                     )}
                   </div>
                 </ScrollArea>
-
                 {/* Zone de saisie améliorée */}
                 <div className="p-4 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
                   <form onSubmit={handleAgentChatSubmit} className="space-y-2">
@@ -888,7 +926,6 @@ Merci pour votre patience ! Un agent va vous contacter rapidement. 🙏✨`
                       : "Décrivez votre problème ou demande de manière détaillée"}
                   </CardDescription>
                 </CardHeader>
-
                 <CardContent className="space-y-6">
                   <div className="space-y-2">
                     <Label htmlFor="userEmail" className="text-sm font-medium flex items-center gap-2">
@@ -958,7 +995,6 @@ Merci pour votre patience ! Un agent va vous contacter rapidement. 🙏✨`
                       : "Ajoutez des captures d'écran ou documents pour nous aider à mieux comprendre"}
                   </CardDescription>
                 </CardHeader>
-
                 <CardContent>
                   {submitStatus !== "success" && (
                     <div className="border-2 border-dashed border-emerald-300 dark:border-emerald-700 rounded-xl p-8 text-center bg-emerald-50/50 dark:bg-emerald-950/20 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 transition-colors">
@@ -1045,8 +1081,35 @@ Merci pour votre patience ! Un agent va vous contacter rapidement. 🙏✨`
                       : "Classification automatique basée sur votre description"}
                   </CardDescription>
                 </CardHeader>
-
                 <CardContent className="space-y-6">
+                  {/* Bouton pour classification IA améliorée */}
+                  {submitStatus !== "success" && (
+                    <div className="space-y-3 -mt-2">
+                      <Button
+                        type="button"
+                        onClick={predictWithAdvancedAI}
+                        disabled={isAnalyzingAdvanced || (!formData.title.trim() && !formData.description.trim())}
+                        className="w-60 h-10 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-md text-sm rounded-md
+"
+                      >
+                        {isAnalyzingAdvanced ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Classification en cours...
+                          </>
+                        ) : (
+                          <>
+                            <Zap className="mr-2 h-4 w-4" />
+                            Classification IA Améliorée
+                          </>
+                        )}
+                      </Button>
+                      <p className="text-xs text-muted-foreground text-center">
+                        Obtenez une prédiction exacte et plus précise
+                      </p>
+                    </div>
+                  )}
+
                   <div className="space-y-3">
                     <Label className="text-sm font-medium flex items-center gap-2">
                       <span>Type de ticket</span>

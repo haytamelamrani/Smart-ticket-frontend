@@ -71,13 +71,13 @@ export async function POST(request: NextRequest) {
       // Priorité
       if (
         combinedText.includes("urgent") ||
-        combinedText.includes("immédiatement") ||
+        combinedText.includes("immediatement") ||
         combinedText.includes("critique")
       ) {
         predictedPriority = "urgent"
       } else if (combinedText.includes("important") || combinedText.includes("rapidement")) {
         predictedPriority = "high"
-      } else if (combinedText.includes("quand vous pouvez") || combinedText.includes("pas pressé")) {
+      } else if (combinedText.includes("quand vous pouvez") || combinedText.includes("pas presse")) {
         predictedPriority = "low"
       }
 

@@ -26,7 +26,6 @@ export function Navbar() {
             <Ticket className="h-8 w-8 text-green-600 dark:text-green-400" />
             <span className="font-bold text-xl text-foreground">Smart Ticket</span>
           </Link>
-
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-8">
             {navItems.map((item) => (

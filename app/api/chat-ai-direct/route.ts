@@ -15,6 +15,7 @@ export async function POST(request: NextRequest) {
 
     const title = ticket.title || ""
     const description = ticket.description || ""
+    const status =ticket.status || ""
 
     if (!title && !description) {
       console.warn("⚠️ Aucune donnée fournie pour le ticket")
@@ -22,24 +23,36 @@ export async function POST(request: NextRequest) {
     }
 
     const prompt = `
-Tu es un assistant IA spécialisé dans la classification de tickets de support technique. 
+    Tu es un assistant IA expert en support technique.
 
-Analyse le titre et la description suivants et détermine :
-1. Le TYPE de ticket parmi : incident, request, complaint, suggestion
-2. La CATÉGORIE parmi : technical, account, billing, feature, bug, other  
-3. La PRIORITÉ parmi : low, medium, high, urgent
-4. Une RÉPONSE SUGGÉRÉE utile et professionnelle pour aider l'utilisateur
+Ta mission est d'analyser et de répondre à un ticket utilisateur.  
+**Concentre-toi principalement sur le message actuel de l'utilisateur.**  
+Les autres éléments (titre, description, statut) servent uniquement de contexte supplémentaire.
 
-Titre: "${title}"
-Description: "${description}"
+Voici les informations fournies :
 
-Réponds UNIQUEMENT au format JSON suivant (sans texte autour) :
+- Message utilisateur (à prioriser) : ${message}
+- Contexte du ticket :
+  - Titre : ${title}
+  - Description : ${description}
+  - Statut : ${status}
+
+Analyse ces éléments et déduis :
+
+1. Le **type** du ticket parmi : "incident", "request", "complaint", "suggestion"
+2. La **catégorie** parmi : "technical", "account", "billing", "feature", "bug", "other"
+3. La **priorité** parmi : "low", "medium", "high", "urgent"
+4. Une **réponse professionnelle** et utile à envoyer à l'utilisateur (en français), en te basant surtout sur le message, et en adaptant le ton à la situation. Sois empathique, précis, et pertinent.
+
+Réponds uniquement au format JSON suivant, sans texte autour :
+
 {
   "type": "valeur_type",
-  "category": "valeur_categorie", 
+  "category": "valeur_categorie",
   "priority": "valeur_priorite",
-  "suggestedResponse": "Réponse détaillée et utile en français"
+  "suggestedResponse": "Réponse utile et contextuelle ici"
 }
+
 `
 
     console.log("🔑 OPENROUTER_API_KEY: Chargée ✅")
@@ -60,7 +73,7 @@ Réponds UNIQUEMENT au format JSON suivant (sans texte autour) :
           { role: "user", content: prompt }
         ],
         temperature: 0.3,
-        max_tokens: 500
+        max_tokens: 5000
       })
     })
 
